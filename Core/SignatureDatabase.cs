@@ -20,6 +20,11 @@ public sealed class SignatureDatabase
 
     public static SignatureDatabase LoadFromFile(string path)
     {
+        return LoadFromStream(File.OpenRead(path));
+    }
+
+    public static SignatureDatabase LoadFromStream(Stream stream)
+    {
         var options = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
@@ -27,11 +32,12 @@ public sealed class SignatureDatabase
         };
         options.Converters.Add(new JsonStringEnumConverter());
 
-        var families = JsonSerializer.Deserialize<List<SignatureFamily>>(File.ReadAllText(path), options)
-            ?? throw new InvalidDataException("data/signatures.json не содержит массива семейств.");
+        using var reader = new StreamReader(stream);
+        var families = JsonSerializer.Deserialize<List<SignatureFamily>>(reader.ReadToEnd(), options)
+            ?? throw new InvalidDataException("signatures.json does not contain a families array.");
         if (families.Count == 0)
         {
-            throw new InvalidDataException("data/signatures.json пуст — сканировать нечего.");
+            throw new InvalidDataException("signatures.json is empty — nothing to scan.");
         }
 
         var automaton = new AhoCorasick<DetectionTag>();
@@ -42,7 +48,7 @@ public sealed class SignatureDatabase
         {
             if (string.IsNullOrWhiteSpace(family.Family))
             {
-                throw new InvalidDataException("В базе сигнатур найдено семейство без имени.");
+                throw new InvalidDataException("Signature database contains a family without a name.");
             }
 
             foreach (var pattern in family.Patterns)

@@ -9,6 +9,7 @@ public sealed class ScanConfig
     public long? MinSize { get; init; }
     public long? MaxSize { get; init; }
     public bool SkipSigned { get; init; }
+    public HashSet<string>? SkipPaths { get; init; }
     public HashSet<string>? Extensions { get; init; }
 }
 
@@ -78,6 +79,12 @@ public sealed class FileScanner
                 catch
                 {
                     stats.Errors++;
+                    continue;
+                }
+
+                if (cfg.SkipPaths?.Contains(path) == true)
+                {
+                    stats.SkippedSize++;
                     continue;
                 }
 

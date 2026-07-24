@@ -9,10 +9,20 @@
     <RootNamespace>Jrss</RootNamespace>
     <LangVersion>latest</LangVersion>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Remove="наброски\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="rules\**\*" />
+    <EmbeddedResource Include="data\signatures.json" />
+    <!-- agent jar removed — replaced by external memory access in Jrss.ExternalAccess -->
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using Jrss.ClassDumper;
 using Jrss.Core;
 using Jrss.Core.YaraLite;
@@ -8,10 +9,8 @@ using Jrss.Ui;
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 Console.Title = "Jrss — local anti-cheat scanner";
 
-string rulesDirectory = Path.Combine(AppContext.BaseDirectory, "rules");
-string signaturesPath = Path.Combine(AppContext.BaseDirectory, "data", "signatures.json");
-YaraEngine? yaraEngine = LoadYaraEngine(rulesDirectory);
-SignatureDatabase? signatureDatabase = LoadSignatureDatabase(signaturesPath);
+YaraEngine? yaraEngine = LoadYaraEngineFromAssembly();
+SignatureDatabase? signatureDatabase = LoadSignatureDatabaseFromAssembly();
 
 while (true)
 {
@@ -52,11 +51,27 @@ while (true)
     ConsoleUi.Pause();
 }
 
-static YaraEngine? LoadYaraEngine(string path)
+static YaraEngine? LoadYaraEngineFromAssembly()
 {
     try
     {
-        var rules = YaraLiteParser.ParseDirectory(path);
+        var asm = Assembly.GetExecutingAssembly();
+        var prefix = $"{asm.GetName().Name}.rules.";
+        var rules = new List<YaraRule>();
+
+        foreach (var name in asm.GetManifestResourceNames())
+        {
+            if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!name.EndsWith(".yar", StringComparison.OrdinalIgnoreCase) && !name.EndsWith(".yara", StringComparison.OrdinalIgnoreCase)) continue;
+
+            using var stream = asm.GetManifestResourceStream(name);
+            if (stream is null) continue;
+            using var reader = new StreamReader(stream);
+            var content = reader.ReadToEnd();
+            var ns = Path.GetFileNameWithoutExtension(name[prefix.Length..]);
+            rules.AddRange(YaraLiteParser.ParseContent(content, ns, name));
+        }
+
         return rules.Count == 0 ? null : YaraEngine.Compile(rules);
     }
     catch (Exception ex)
@@ -66,9 +81,18 @@ static YaraEngine? LoadYaraEngine(string path)
     }
 }
 
-static SignatureDatabase? LoadSignatureDatabase(string path)
+static SignatureDatabase? LoadSignatureDatabaseFromAssembly()
 {
-    try { return SignatureDatabase.LoadFromFile(path); }
+    try
+    {
+        var asm = Assembly.GetExecutingAssembly();
+        var name = asm.GetManifestResourceNames().FirstOrDefault(n => n.EndsWith("signatures.json"));
+        if (name is null) return null;
+
+        using var stream = asm.GetManifestResourceStream(name);
+        if (stream is null) return null;
+        return SignatureDatabase.LoadFromStream(stream);
+    }
     catch (Exception ex)
     {
         ConsoleUi.Warn($"Signature database not loaded: {ex.Message}");
@@ -81,7 +105,7 @@ static void RunMemoryScan(SignatureDatabase? database)
     if (database is null)
     {
         ConsoleUi.BeginScreen("Java Memory Scan");
-        ConsoleUi.Warn("Signature database unavailable. Check data/signatures.json.");
+        ConsoleUi.Warn("Signature database unavailable (not embedded in executable).");
         return;
     }
     SignatureMemoryScan.Run(database);
@@ -92,7 +116,7 @@ static void RunFileScan(YaraEngine? engine)
     ConsoleUi.BeginScreen("File / Disk Scan", "Ctrl+C safely cancels long scans.");
     if (engine is null)
     {
-        ConsoleUi.Warn("YARA rules unavailable. Check the rules folder next to the app.");
+        ConsoleUi.Warn("YARA rules unavailable (not embedded in executable).");
         return;
     }
 
@@ -108,11 +132,14 @@ static void RunFileScan(YaraEngine? engine)
         return;
     }
 
+    var selfPath = Environment.ProcessPath;
     var config = new ScanConfig
     {
         Roots = roots,
         SkipSigned = ConsoleUi.Confirm("Skip Authenticode-signed files?"),
-        MaxSize = 200L * 1024 * 1024,
+        SkipPaths = selfPath is not null ? [selfPath] : null,
+        MinSize = 25L * 1024,
+        MaxSize = 50L * 1024 * 1024,
     };
 
     using var cancellation = new CancellationTokenSource();

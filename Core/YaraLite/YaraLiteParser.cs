@@ -30,8 +30,12 @@ public static class YaraLiteParser
 
     public static List<YaraRule> ParseFile(string path)
     {
-        var text = MaskComments(File.ReadAllText(path));
-        var ns = Path.GetFileNameWithoutExtension(path);
+        return ParseContent(File.ReadAllText(path), Path.GetFileNameWithoutExtension(path), path);
+    }
+
+    public static List<YaraRule> ParseContent(string content, string ns, string sourceName)
+    {
+        var text = MaskComments(content);
         var rules = new List<YaraRule>();
         int cursor = 0;
 
@@ -47,12 +51,12 @@ public static class YaraLiteParser
             int closeBrace = FindMatchingBrace(text, openBrace);
             if (closeBrace < 0)
             {
-                throw new FormatException($"Unclosed rule '{ruleStart.Groups["name"].Value}' in {path}.");
+                throw new FormatException($"Unclosed rule '{ruleStart.Groups["name"].Value}' in {sourceName}.");
             }
 
             string name = ruleStart.Groups["name"].Value;
             string body = text[(openBrace + 1)..closeBrace];
-            rules.Add(ParseRule(path, ns, name, body));
+            rules.Add(ParseRule(sourceName, ns, name, body));
             cursor = closeBrace + 1;
         }
 

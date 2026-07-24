@@ -13,7 +13,7 @@ internal static class JavaProcesses
             .ToList();
         if (processes.Count == 0)
         {
-            ConsoleUi.Warn("javaw.exe / java.exe processes not found.");
+            ConsoleUi.Warn("javaw.exe processes not found.");
             return null;
         }
 
@@ -44,8 +44,7 @@ internal static class JavaProcesses
     {
         try
         {
-            return process.ProcessName.Equals("javaw", StringComparison.OrdinalIgnoreCase) ||
-                   process.ProcessName.Equals("java", StringComparison.OrdinalIgnoreCase);
+            return process.ProcessName.Equals("javaw", StringComparison.OrdinalIgnoreCase);
         }
         catch
         {
