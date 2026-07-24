@@ -79,6 +79,8 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 - Windows x64
 - .NET 8 runtime (для self-contained билда не требуется)
 
+## Дипсик родной опять чето написал много чуши в ридми, так что сделайте поблажку
+
 ---
 
 *Написан и поддерживается Lain. По вопросам: Discord — rewakura*
